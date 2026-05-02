@@ -2,8 +2,13 @@
 
 import { useEffect, useState, useCallback } from "react";
 import {
-  LineChart, Line, XAxis, YAxis, Tooltip,
-  ResponsiveContainer, CartesianGrid
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  CartesianGrid,
 } from "recharts";
 import IndexCard from "@/components/IndexCard";
 import { IndexQuote } from "@/lib/yahoo";
@@ -26,7 +31,6 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
-  // 전체 지수 가져오기
   const fetchIndices = useCallback(async () => {
     try {
       const res = await fetch("/api/yahoo?type=all");
@@ -40,11 +44,12 @@ export default function Dashboard() {
     }
   }, []);
 
-  // 차트 데이터 가져오기
   const fetchHistory = useCallback(async () => {
     if (!selectedSymbol) return;
     try {
-      const res = await fetch(`/api/yahoo?type=history&symbol=${selectedSymbol}&period=${period}`);
+      const res = await fetch(
+        `/api/yahoo?type=history&symbol=${selectedSymbol}&period=${period}`
+      );
       const json = await res.json();
       setHistory(json.data ?? []);
     } catch (e) {
@@ -52,7 +57,6 @@ export default function Dashboard() {
     }
   }, [selectedSymbol, period]);
 
-  // 초기 로딩 + 30초 자동 갱신
   useEffect(() => {
     fetchIndices();
     const interval = setInterval(fetchIndices, 30_000);
@@ -70,11 +74,11 @@ export default function Dashboard() {
   return (
     <main className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto">
-
-        {/* 헤더 */}
         <div className="flex justify-between items-center mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">🌐 글로벌 주요 지수</h1>
+            <h1 className="text-2xl font-bold text-gray-900">
+              🌐 글로벌 주요 지수
+            </h1>
             <p className="text-sm text-gray-400 mt-0.5">
               {lastUpdated
                 ? `마지막 업데이트: ${lastUpdated.toLocaleTimeString("ko-KR")}`
@@ -89,11 +93,13 @@ export default function Dashboard() {
           </button>
         </div>
 
-        {/* 지수 카드 그리드 */}
         {loading ? (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
             {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="h-28 rounded-xl bg-gray-200 animate-pulse" />
+              <div
+                key={i}
+                className="h-28 rounded-xl bg-gray-200 animate-pulse"
+              />
             ))}
           </div>
         ) : (
@@ -109,7 +115,6 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* 차트 영역 */}
         <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
           <div className="flex justify-between items-center mb-4">
             <div>
@@ -118,7 +123,6 @@ export default function Dashboard() {
               </h2>
               <p className="text-sm text-gray-400">{selectedIndex?.region}</p>
             </div>
-            {/* 기간 선택 */}
             <div className="flex gap-2">
               {PERIODS.map((p) => (
                 <button
@@ -143,20 +147,29 @@ export default function Dashboard() {
                 <XAxis
                   dataKey="date"
                   tick={{ fontSize: 11, fill: "#9ca3af" }}
-                  tickFormatter={(v) => v.slice(5)} // MM-DD
+                  tickFormatter={(v: string) => v.slice(5)}
                 />
                 <YAxis
                   tick={{ fontSize: 11, fill: "#9ca3af" }}
                   domain={["auto", "auto"]}
-                  tickFormatter={(v) => v.toLocaleString()}
+                  tickFormatter={(v: number) => v.toLocaleString()}
                   width={70}
                 />
                 <Tooltip
+                  contentStyle={{
+                    backgroundColor: "#fff",
+                    border: "1px solid #ccc",
+                    borderRadius: "4px",
+                  }}
+                  labelFormatter={(label: any) => `날짜: ${label}`}
                   formatter={(value: any) => [
-                    value.toLocaleString("en-US", { maximumFractionDigits: 2 }),
+                    typeof value === "number"
+                      ? value.toLocaleString("en-US", {
+                          maximumFractionDigits: 2,
+                        })
+                      : value,
                     "종가",
                   ]}
-                  labelFormatter={(label) => `날짜: ${label}`}
                 />
                 <Line
                   type="monotone"
@@ -173,7 +186,6 @@ export default function Dashboard() {
             </div>
           )}
         </div>
-
       </div>
     </main>
   );
