@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchAllIndices, fetchQuote } from "@/lib/yahoo";
+import { fetchAlphaVantageQuote } from "@/lib/alphavantage";
 
 const cache = new Map<string, { data: unknown; timestamp: number }>();
 const CACHE_TTL = 30 * 1000;
@@ -24,17 +24,6 @@ export async function GET(req: NextRequest) {
   const symbol = searchParams.get("symbol") ?? "";
 
   try {
-    if (type === "all") {
-      const cacheKey = "all_indices";
-      const cached = getCached(cacheKey);
-      if (cached) {
-        return NextResponse.json({ data: cached, cached: true });
-      }
-      const data = await fetchAllIndices();
-      setCache(cacheKey, data);
-      return NextResponse.json({ data, cached: false });
-    }
-
     if (type === "quote") {
       if (!symbol) {
         return NextResponse.json(
@@ -47,7 +36,8 @@ export async function GET(req: NextRequest) {
       if (cached) {
         return NextResponse.json({ data: cached, cached: true });
       }
-      const data = await fetchQuote(symbol);
+
+      const data = await fetchAlphaVantageQuote(symbol);
       if (!data) {
         return NextResponse.json(
           { error: "Failed to fetch quote" },
