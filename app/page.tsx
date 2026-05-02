@@ -10,8 +10,20 @@ import {
   ResponsiveContainer,
   CartesianGrid,
 } from "recharts";
-import IndexCard from "@/components/IndexCard";
-import { IndexQuote } from "@/lib/yahoo";
+import { AlphaVantageQuote } from "@/lib/alphavantage";
+
+const INDICES = [
+  { symbol: "^GSPC", name: "S&P 500", region: "🇺🇸 미국" },
+  { symbol: "^IXIC", name: "NASDAQ", region: "🇺🇸 미국" },
+  { symbol: "^DJI", name: "다우존스", region: "🇺🇸 미국" },
+  { symbol: "^N225", name: "니케이 225", region: "🇯🇵 일본" },
+  { symbol: "^HSI", name: "항셍", region: "🇭🇰 홍콩" },
+  { symbol: "^FTSE", name: "FTSE 100", region: "🇬🇧 영국" },
+  { symbol: "^GDAXI", name: "DAX", region: "🇩🇪 독일" },
+  { symbol: "000001.SS", name: "상하이종합", region: "🇨🇳 중국" },
+];
+
+type IndexQuote = AlphaVantageQuote & { region: string };
 
 const PERIODS = ["1mo", "3mo", "6mo", "1y"] as const;
 type Period = typeof PERIODS[number];
@@ -26,16 +38,27 @@ const PERIOD_LABEL: Record<Period, string> = {
 export default function Dashboard() {
   const [indices, setIndices] = useState<IndexQuote[]>([]);
   const [selectedSymbol, setSelectedSymbol] = useState<string>("^GSPC");
-  const [period, setPeriod] = useState<Period>("1mo");
-  const [history, setHistory] = useState<{ date: string; close: number }[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   const fetchIndices = useCallback(async () => {
     try {
-      const res = await fetch("/api/yahoo?type=all");
-      const json = await res.json();
-      setIndices(json.data ?? []);
+      const results = await Promise.all(
+        INDICES.map(async (idx) => {
+          const res = await fetch(`/api/yahoo?type=quote&symbol=${idx.symbol}`);
+          const json = await res.json();
+          if (json.data) {
+            return {
+              ...json.data,
+              region: idx.region,
+              name: idx.name,
+            };
+          }
+          return null;
+        })
+      );
+
+      setIndices(results.filter((r): r is IndexQuote => r !== null));
       setLastUpdated(new Date());
     } catch (e) {
       console.error("Failed to fetch indices", e);
@@ -44,28 +67,11 @@ export default function Dashboard() {
     }
   }, []);
 
-  const fetchHistory = useCallback(async () => {
-    if (!selectedSymbol) return;
-    try {
-      const res = await fetch(
-        `/api/yahoo?type=history&symbol=${selectedSymbol}&period=${period}`
-      );
-      const json = await res.json();
-      setHistory(json.data ?? []);
-    } catch (e) {
-      console.error("Failed to fetch history", e);
-    }
-  }, [selectedSymbol, period]);
-
   useEffect(() => {
     fetchIndices();
     const interval = setInterval(fetchIndices, 30_000);
     return () => clearInterval(interval);
   }, [fetchIndices]);
-
-  useEffect(() => {
-    fetchHistory();
-  }, [fetchHistory]);
 
   const selectedIndex = indices.find((i) => i.symbol === selectedSymbol);
   const isPositive = (selectedIndex?.changePercent ?? 0) >= 0;
@@ -105,12 +111,55 @@ export default function Dashboard() {
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
             {indices.map((idx) => (
-              <IndexCard
+              <div
                 key={idx.symbol}
-                data={idx}
-                isSelected={idx.symbol === selectedSymbol}
                 onClick={() => setSelectedSymbol(idx.symbol)}
-              />
+                className={`
+                  rounded-xl border-2 p-4 cursor-pointer transition-all duration-200
+                  hover:shadow-md hover:-translate-y-0.5
+                  ${
+                    idx.symbol === selectedSymbol
+                      ? "border-indigo-500 shadow-lg bg-indigo-50"
+                      : "border-gray-200 bg-white"
+                  }
+                `}
+              >
+                <div className="flex justify-between items-start mb-2">
+                  <div>
+                    <p className="text-xs text-gray-400">{idx.region}</p>
+                    <p className="font-bold text-gray-800 text-sm">
+                      {idx.name}
+                    </p>
+                  </div>
+                </div>
+
+                <p className="text-2xl font-bold text-gray-900">
+                  {idx.price.toLocaleString("en-US", {
+                    maximumFractionDigits: 2,
+                  })}
+                </p>
+
+                <div
+                  className={`flex gap-2 mt-1 text-sm font-medium ${
+                    idx.change >= 0 ? "text-red-500" : "text-blue-500"
+                  }`}
+                >
+                  <span>
+                    {idx.change >= 0 ? "▲" : "▼"}{" "}
+                    {Math.abs(idx.change).toLocaleString("en-US", {
+                      maximumFractionDigits: 2,
+                    })}
+                  </span>
+                  <span
+                    className={`px-1.5 rounded ${
+                      idx.change >= 0 ? "bg-red-50" : "bg-blue-50"
+                    }`}
+                  >
+                    {idx.change >= 0 ? "+" : ""}
+                    {idx.changePercent.toFixed(2)}%
+                  </span>
+                </div>
+              </div>
             ))}
           </div>
         )}
@@ -119,70 +168,44 @@ export default function Dashboard() {
           <div className="flex justify-between items-center mb-4">
             <div>
               <h2 className="text-lg font-bold text-gray-800">
-                {selectedIndex?.name ?? "..."} 차트
+                {selectedIndex?.name ?? "..."} 정보
               </h2>
               <p className="text-sm text-gray-400">{selectedIndex?.region}</p>
             </div>
-            <div className="flex gap-2">
-              {PERIODS.map((p) => (
-                <button
-                  key={p}
-                  onClick={() => setPeriod(p)}
-                  className={`text-sm px-3 py-1.5 rounded-lg transition ${
-                    period === p
-                      ? "bg-indigo-600 text-white"
-                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                  }`}
-                >
-                  {PERIOD_LABEL[p]}
-                </button>
-              ))}
-            </div>
           </div>
 
-          {history.length > 0 ? (
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={history}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                <XAxis
-                  dataKey="date"
-                  tick={{ fontSize: 11, fill: "#9ca3af" }}
-                  tickFormatter={(v: string) => v.slice(5)}
-                />
-                <YAxis
-                  tick={{ fontSize: 11, fill: "#9ca3af" }}
-                  domain={["auto", "auto"]}
-                  tickFormatter={(v: number) => v.toLocaleString()}
-                  width={70}
-                />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "#fff",
-                    border: "1px solid #ccc",
-                    borderRadius: "4px",
-                  }}
-                  labelFormatter={(label: any) => `날짜: ${label}`}
-                  formatter={(value: any) => [
-                    typeof value === "number"
-                      ? value.toLocaleString("en-US", {
-                          maximumFractionDigits: 2,
-                        })
-                      : value,
-                    "종가",
-                  ]}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="close"
-                  stroke={chartColor}
-                  dot={false}
-                  strokeWidth={2}
-                />
-              </LineChart>
-            </ResponsiveContainer>
+          {selectedIndex ? (
+            <div className="space-y-2 text-sm">
+              <p>
+                <span className="text-gray-600">현재가:</span>{" "}
+                <span className="font-bold">
+                  {selectedIndex.price.toLocaleString("en-US", {
+                    maximumFractionDigits: 2,
+                  })}
+                </span>
+              </p>
+              <p>
+                <span className="text-gray-600">변동:</span>{" "}
+                <span
+                  className={`font-bold ${
+                    selectedIndex.change >= 0 ? "text-red-500" : "text-blue-500"
+                  }`}
+                >
+                  {selectedIndex.change >= 0 ? "+" : ""}
+                  {selectedIndex.change.toLocaleString("en-US", {
+                    maximumFractionDigits: 2,
+                  })}
+                  ({selectedIndex.changePercent.toFixed(2)}%)
+                </span>
+              </p>
+              <p>
+                <span className="text-gray-600">마지막 업데이트:</span>{" "}
+                <span className="font-bold">{selectedIndex.timestamp}</span>
+              </p>
+            </div>
           ) : (
-            <div className="h-[300px] flex items-center justify-center text-gray-400">
-              차트 데이터를 불러오는 중...
+            <div className="text-center text-gray-400">
+              지수를 선택해주세요
             </div>
           )}
         </div>
