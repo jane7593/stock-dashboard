@@ -3,16 +3,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { IndexQuote } from "@/lib/yahoo";
 
-const PERIODS = ["1mo", "3mo", "6mo", "1y"] as const;
-type Period = typeof PERIODS[number];
-
-const PERIOD_LABEL: Record<Period, string> = {
-  "1mo": "1개월",
-  "3mo": "3개월",
-  "6mo": "6개월",
-  "1y": "1년",
-};
-
 export default function Dashboard() {
   const [indices, setIndices] = useState<IndexQuote[]>([]);
   const [selectedSymbol, setSelectedSymbol] = useState<string>("^GSPC");
