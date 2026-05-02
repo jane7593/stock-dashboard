@@ -7,6 +7,7 @@ export const INDICES = [
   { symbol: "^FTSE",     name: "FTSE 100",   region: "🇬🇧 영국" },
   { symbol: "^GDAXI",    name: "DAX",        region: "🇩🇪 독일" },
   { symbol: "000001.SS", name: "상하이종합",  region: "🇨🇳 중국" },
+  { symbol: "^KS11", name: "KOSPI", region: "🇰🇷 한국" },
 ];
 
 export interface IndexQuote {
