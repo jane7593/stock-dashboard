@@ -152,7 +152,7 @@ export default function Dashboard() {
                   width={70}
                 />
                 <Tooltip
-                  formatter={(value: number) => [
+                  formatter={(value: any) => [
                     value.toLocaleString("en-US", { maximumFractionDigits: 2 }),
                     "종가",
                   ]}
